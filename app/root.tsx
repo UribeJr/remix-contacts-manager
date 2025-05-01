@@ -1,12 +1,43 @@
+import type { LinksFunction, LoaderFunctionArgs } from "@remix-run/node";
+
+import appStylesHref from "./app.css?url";
+
+export const links: LinksFunction = () => [
+  { rel: "stylesheet", href: appStylesHref },
+];
+
+import { json, redirect } from "@remix-run/node";
 import {
   Form,
+  NavLink,
   Links,
   Meta,
+  Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
+  useNavigation,
 } from "@remix-run/react";
 
+import { createEmptyContact, getContacts } from "./data";
+
+export const action = async () => {
+  const contact = await createEmptyContact();
+  return redirect(`/contacts/${contact.id}/edit`);
+};
+
+export const loader = async ({
+  request,
+}: LoaderFunctionArgs) => {
+  const url = new URL(request.url);
+  const q = url.searchParams.get("q");
+  const contacts = await getContacts(q);
+  return { contacts, q };
+};
+
 export default function App() {
+  const { contacts, q } = useLoaderData<typeof loader>();
+  const navigation = useNavigation();
   return (
     <html lang="en">
       <head>
@@ -26,6 +57,7 @@ export default function App() {
                 placeholder="Search"
                 type="search"
                 name="q"
+                defaultValue={q || ""}
               />
               <div id="search-spinner" aria-hidden hidden={true} />
             </Form>
@@ -34,15 +66,32 @@ export default function App() {
             </Form>
           </div>
           <nav>
-            <ul>
-              <li>
-                <a href={`/contacts/1`}>Your Name</a>
-              </li>
-              <li>
-                <a href={`/contacts/2`}>Your Friend</a>
-              </li>
-            </ul>
+          {contacts.length ? (
+              <ul>
+                {contacts.map((contact) => (
+                  <li key={contact.id}>
+                    <NavLink to={`contacts/${contact.id}`}>
+                      {contact.first || contact.last ? (
+                        <>
+                          {contact.first} {contact.last}
+                        </>
+                      ) : (
+                        <i>No Name</i>
+                      )}{" "}
+                      {contact.favorite ? <span>★</span> : null}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>
+                <i>No contacts</i>
+              </p>
+            )}
           </nav>
+        </div>
+        <div className={ navigation.state === "loading" ? "loading" : "" } id="detail">
+          <Outlet />
         </div>
 
         <ScrollRestoration />
